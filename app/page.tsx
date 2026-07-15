@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Section = { id: string; title: string; content: string };
+type Section = {
+  id: string;
+  title: string;
+  content: string;
+  titleSize?: number;
+  contentSize?: number;
+  titleColor?: string;
+  contentColor?: string;
+};
 type ResumePage = { id: string; sections: Section[] };
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
@@ -44,11 +52,13 @@ function Editable({
   onChange,
   className = "",
   multiline = false,
+  style,
 }: {
   value: string;
   onChange: (value: string) => void;
   className?: string;
   multiline?: boolean;
+  style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -60,11 +70,17 @@ function Editable({
     <div
       ref={ref as React.RefObject<HTMLDivElement>}
       className={`editable ${className}`}
+      style={style}
       contentEditable
       suppressContentEditableWarning
       role="textbox"
       aria-multiline={multiline}
       onInput={(event) => onChange(event.currentTarget.innerText)}
+      onPaste={(event) => {
+        event.preventDefault();
+        const plainText = event.clipboardData.getData("text/plain");
+        document.execCommand("insertText", false, plainText);
+      }}
       onKeyDown={(event) => {
         if (!multiline && event.key === "Enter") event.preventDefault();
       }}
@@ -83,6 +99,11 @@ export default function Home() {
   const [photo, setPhoto] = useState<string>("");
   const [photoShape, setPhotoShape] = useState<"square" | "round">("square");
   const [showTips, setShowTips] = useState(true);
+  const [profileStyles, setProfileStyles] = useState({
+    role: { size: 10.5, color: "#246b5b", visible: true },
+    contact: { size: 10.5, color: "#246b5b", visible: true },
+    keywords: { size: 10.5, color: "#246b5b", visible: true },
+  });
   const [profile, setProfile] = useState({
     name: "林知夏",
     role: "高级产品经理",
@@ -97,6 +118,7 @@ export default function Home() {
       const data = JSON.parse(saved);
       if (data.pages?.length) setPages(data.pages);
       if (data.profile) setProfile(data.profile);
+      if (data.profileStyles) setProfileStyles(data.profileStyles);
       if (data.settings) {
         setFontSize(data.settings.fontSize ?? 12.5);
         setLineHeight(data.settings.lineHeight ?? 1.65);
@@ -119,6 +141,7 @@ export default function Home() {
           JSON.stringify({
             pages,
             profile,
+            profileStyles,
             photo,
             settings: { fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape },
           }),
@@ -128,7 +151,7 @@ export default function Home() {
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [pages, profile, photo, fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape]);
+  }, [pages, profile, profileStyles, photo, fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape]);
 
   const updateSection = (pageIndex: number, sectionId: string, patch: Partial<Section>) => {
     setPages((current) =>
@@ -145,7 +168,7 @@ export default function Home() {
     setPages((current) =>
       current.map((page, index) =>
         index === activePage
-          ? { ...page, sections: [...page.sections, { id, title: "新模块", content: "点击这里输入内容……" }] }
+          ? { ...page, sections: [...page.sections, { id, title: "新模块", content: "点击这里输入内容……", titleSize: 15, contentSize: fontSize, titleColor: "#17201d", contentColor: "#343d3a" }] }
           : page,
       ),
     );
@@ -202,6 +225,11 @@ export default function Home() {
       role: "高级产品经理",
       contact: "138 0000 0000　 hello@example.com　 杭州",
       keywords: "AI 产品 0-1｜CRM 工作流｜本地生活工具｜视频 AIGC｜复杂 Agent",
+    });
+    setProfileStyles({
+      role: { size: 10.5, color: "#246b5b", visible: true },
+      contact: { size: 10.5, color: "#246b5b", visible: true },
+      keywords: { size: 10.5, color: "#246b5b", visible: true },
     });
     setPhoto("");
     window.localStorage.removeItem("resume-studio-draft");
@@ -268,12 +296,45 @@ export default function Home() {
           </section>
 
           <section className="panel-section">
-            <div className="panel-heading"><span>当前页模块</span></div>
+            <div className="panel-heading"><span>个人信息栏</span><b>逐栏设置</b></div>
+            <div className="field-card-list">
+              {([
+                ["role", "求职岗位"],
+                ["contact", "联系方式"],
+                ["keywords", "关键词"],
+              ] as const).map(([key, label]) => {
+                const setting = profileStyles[key];
+                return (
+                  <div className="field-card" key={key}>
+                    <div className="field-card-head">
+                      <strong>{label}</strong>
+                      <button className={setting.visible ? "visibility-button" : "visibility-button hidden"} onClick={() => setProfileStyles({ ...profileStyles, [key]: { ...setting, visible: !setting.visible } })}>{setting.visible ? "删除/隐藏" : "＋ 添加"}</button>
+                    </div>
+                    <div className="mini-controls">
+                      <label>字号<input type="number" min="8" max="24" step="0.5" value={setting.size} onChange={(e) => setProfileStyles({ ...profileStyles, [key]: { ...setting, size: Number(e.target.value) } })} /></label>
+                      <label>颜色<input type="color" value={setting.color} onChange={(e) => setProfileStyles({ ...profileStyles, [key]: { ...setting, color: e.target.value } })} /></label>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="panel-section">
+            <div className="panel-heading"><span>当前页模块</span><b>可自由增删</b></div>
             <div className="section-list">
               {pages[activePage]?.sections.map((section, index) => (
-                <div className="section-row" key={section.id}>
-                  <span>{section.title || "未命名模块"}</span>
-                  <div><button aria-label="上移" onClick={() => moveSection(index, -1)}>↑</button><button aria-label="下移" onClick={() => moveSection(index, 1)}>↓</button><button aria-label="删除" onClick={() => removeSection(section.id)}>×</button></div>
+                <div className="module-card" key={section.id}>
+                  <div className="section-row">
+                    <span>{section.title || "未命名模块"}</span>
+                    <div><button aria-label="上移" onClick={() => moveSection(index, -1)}>↑</button><button aria-label="下移" onClick={() => moveSection(index, 1)}>↓</button><button aria-label="删除" onClick={() => removeSection(section.id)}>×</button></div>
+                  </div>
+                  <div className="module-style-grid">
+                    <label>标题字号<input type="number" min="10" max="28" step="0.5" value={section.titleSize ?? 15} onChange={(e) => updateSection(activePage, section.id, { titleSize: Number(e.target.value) })} /></label>
+                    <label>标题颜色<input type="color" value={section.titleColor ?? "#17201d"} onChange={(e) => updateSection(activePage, section.id, { titleColor: e.target.value })} /></label>
+                    <label>正文字号<input type="number" min="8" max="24" step="0.5" value={section.contentSize ?? fontSize} onChange={(e) => updateSection(activePage, section.id, { contentSize: Number(e.target.value) })} /></label>
+                    <label>正文颜色<input type="color" value={section.contentColor ?? "#343d3a"} onChange={(e) => updateSection(activePage, section.id, { contentColor: e.target.value })} /></label>
+                  </div>
                 </div>
               ))}
             </div>
@@ -291,16 +352,16 @@ export default function Home() {
                   <header className="resume-header">
                     <div className="identity">
                       <Editable className="resume-name" value={profile.name} onChange={(name) => setProfile({ ...profile, name })} />
-                      <Editable className="resume-role" value={profile.role} onChange={(role) => setProfile({ ...profile, role })} />
-                      <Editable className="resume-contact" value={profile.contact} onChange={(contact) => setProfile({ ...profile, contact })} />
-                      <div className="resume-keywords">
+                      {profileStyles.role.visible && <Editable className="resume-role" style={{ fontSize: profileStyles.role.size, color: profileStyles.role.color }} value={profile.role} onChange={(role) => setProfile({ ...profile, role })} />}
+                      {profileStyles.contact.visible && <Editable className="resume-contact" style={{ fontSize: profileStyles.contact.size, color: profileStyles.contact.color }} value={profile.contact} onChange={(contact) => setProfile({ ...profile, contact })} />}
+                      {profileStyles.keywords.visible && <div className="resume-keywords" style={{ fontSize: profileStyles.keywords.size, color: profileStyles.keywords.color }}>
                         <span>关键词：</span>
                         <Editable
                           className="resume-keywords-value"
                           value={profile.keywords ?? "AI 产品 0-1｜CRM 工作流｜本地生活工具｜视频 AIGC｜复杂 Agent"}
                           onChange={(keywords) => setProfile({ ...profile, keywords })}
                         />
-                      </div>
+                      </div>}
                     </div>
                     <label className={`resume-photo ${photoShape}`}>
                       {photo ? <img src={photo} alt="个人照片" /> : <><span>＋</span><small>添加照片</small></>}
@@ -312,8 +373,8 @@ export default function Home() {
                 <div className="resume-sections">
                   {page.sections.map((section) => (
                     <section className="resume-section" key={section.id}>
-                      <Editable className="section-title" value={section.title} onChange={(title) => updateSection(pageIndex, section.id, { title })} />
-                      <Editable className="section-content" multiline value={section.content} onChange={(content) => updateSection(pageIndex, section.id, { content })} />
+                      <Editable className="section-title" style={{ fontSize: section.titleSize ?? 15, color: section.titleColor ?? "#17201d" }} value={section.title} onChange={(title) => updateSection(pageIndex, section.id, { title })} />
+                      <Editable className="section-content" style={{ fontSize: section.contentSize ?? fontSize, color: section.contentColor ?? "#343d3a" }} multiline value={section.content} onChange={(content) => updateSection(pageIndex, section.id, { content })} />
                     </section>
                   ))}
                 </div>

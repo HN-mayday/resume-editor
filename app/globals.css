@@ -55,6 +55,17 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .section-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 145px; }
 .section-row div { display: flex; gap: 2px; }
 .section-row button { border: 0; background: transparent; color: #818b87; padding: 2px 4px; }
+.module-card, .field-card { border: 1px solid #dfe5e2; background: #fff; border-radius: 9px; overflow: hidden; }
+.module-card .section-row { border: 0; border-radius: 0; border-bottom: 1px solid #edf0ee; }
+.module-style-grid, .mini-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px; }
+.module-style-grid label, .mini-controls label { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px; color: #76807c; font-size: 9px; }
+.module-style-grid input[type="number"], .mini-controls input[type="number"] { width: 48px; border: 1px solid #d9dfdc; border-radius: 5px; padding: 4px; color: #303936; }
+.module-style-grid input[type="color"], .mini-controls input[type="color"] { width: 27px; height: 24px; padding: 0; border: 0; background: transparent; }
+.field-card-list { display: grid; gap: 7px; }
+.field-card-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 9px; border-bottom: 1px solid #edf0ee; }
+.field-card-head strong { font-size: 11px; }
+.visibility-button { border: 0; background: transparent; color: #9b5555; font-size: 9px; }
+.visibility-button.hidden { color: #246b5b; font-weight: 700; }
 
 .canvas-area { min-width: 0; padding: 24px 24px 80px; overflow: auto; background-color: var(--studio); background-image: radial-gradient(#cfd6d2 0.7px, transparent 0.7px); background-size: 18px 18px; }
 .tip-banner { max-width: 794px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px 9px 15px; border: 1px solid #d7dfdc; border-radius: 9px; background: rgba(255,255,255,.9); color: #65706c; font-size: 11px; }
@@ -69,6 +80,7 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .resume-header { min-height: 36mm; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 6mm; border-bottom: 2px solid var(--accent); }
 .identity { flex: 1; min-width: 0; }
 .editable { outline: none; border-radius: 3px; white-space: pre-wrap; }
+.editable *, .resume-role *, .resume-contact *, .resume-keywords * { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; font-weight: inherit !important; letter-spacing: inherit !important; color: inherit !important; }
 .editable:hover { background: color-mix(in srgb, var(--accent) 6%, white); }
 .editable:focus { background: color-mix(in srgb, var(--accent) 9%, white); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
 .resume-name { font-family: inherit; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .12em; color: #151d1a; }

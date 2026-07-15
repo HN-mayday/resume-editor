@@ -87,6 +87,7 @@ export default function Home() {
     name: "林知夏",
     role: "高级产品经理",
     contact: "138 0000 0000　 hello@example.com　 杭州",
+    keywords: "AI 产品 0-1｜CRM 工作流｜本地生活工具｜视频 AIGC｜复杂 Agent",
   });
 
   useEffect(() => {
@@ -196,7 +197,12 @@ export default function Home() {
     if (!window.confirm("确定恢复示例内容吗？当前编辑将被清空。")) return;
     setPages(initialPages);
     setActivePage(0);
-    setProfile({ name: "林知夏", role: "高级产品经理", contact: "138 0000 0000　 hello@example.com　 杭州" });
+    setProfile({
+      name: "林知夏",
+      role: "高级产品经理",
+      contact: "138 0000 0000　 hello@example.com　 杭州",
+      keywords: "AI 产品 0-1｜CRM 工作流｜本地生活工具｜视频 AIGC｜复杂 Agent",
+    });
     setPhoto("");
     window.localStorage.removeItem("resume-studio-draft");
   };
@@ -287,6 +293,14 @@ export default function Home() {
                       <Editable className="resume-name" value={profile.name} onChange={(name) => setProfile({ ...profile, name })} />
                       <Editable className="resume-role" value={profile.role} onChange={(role) => setProfile({ ...profile, role })} />
                       <Editable className="resume-contact" value={profile.contact} onChange={(contact) => setProfile({ ...profile, contact })} />
+                      <div className="resume-keywords">
+                        <span>关键词：</span>
+                        <Editable
+                          className="resume-keywords-value"
+                          value={profile.keywords ?? "AI 产品 0-1｜CRM 工作流｜本地生活工具｜视频 AIGC｜复杂 Agent"}
+                          onChange={(keywords) => setProfile({ ...profile, keywords })}
+                        />
+                      </div>
                     </div>
                     <label className={`resume-photo ${photoShape}`}>
                       {photo ? <img src={photo} alt="个人照片" /> : <><span>＋</span><small>添加照片</small></>}

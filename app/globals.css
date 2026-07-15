@@ -72,9 +72,10 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .editable:hover { background: color-mix(in srgb, var(--accent) 6%, white); }
 .editable:focus { background: color-mix(in srgb, var(--accent) 9%, white); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
 .resume-name { font-family: inherit; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .12em; color: #151d1a; }
-.resume-role { margin-top: 7px; color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .1em; }
-.resume-contact { margin-top: 9px; color: #66706c; font-size: 10.5px; }
-.resume-keywords { display: flex; align-items: flex-start; gap: 4px; margin-top: 7px; color: var(--accent); font-size: 10.5px; line-height: 1.45; font-weight: 700; }
+.resume-role, .resume-contact, .resume-keywords { color: var(--accent); font-size: 10.5px; line-height: 1.45; font-weight: 700; letter-spacing: 0; }
+.resume-role { margin-top: 7px; }
+.resume-contact { margin-top: 7px; }
+.resume-keywords { display: flex; align-items: flex-start; gap: 4px; margin-top: 7px; }
 .resume-keywords > span { flex: 0 0 auto; }
 .resume-keywords-value { flex: 1; min-width: 0; }
 .resume-photo { flex: 0 0 27mm; width: 27mm; height: 34mm; display: grid; place-items: center; align-content: center; gap: 4px; background: #f1f4f2; border: 1px dashed #b9c3bf; overflow: hidden; cursor: pointer; color: #87918d; }

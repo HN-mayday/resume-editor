@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Section = {
   id: string;
@@ -13,7 +17,34 @@ type Section = {
 };
 type ResumePage = { id: string; sections: Section[] };
 
+type EditorSnapshot = {
+  pages: ResumePage[];
+  activePage: number;
+  profile: { name: string; role: string; contact: string; keywords: string };
+  profileStyles: Record<"role" | "contact" | "keywords", { size: number; color: string; visible: boolean }>;
+  photo: string;
+  settings: { fontSize: number; lineHeight: number; sectionGap: number; fontFamily: string; accent: string; photoShape: "square" | "round"; photoSize: { width: number; height: number } };
+};
+
 const makeId = () => Math.random().toString(36).slice(2, 9);
+
+function parseResumeSections(text: string): Section[] {
+  const headingPattern = /^(个人简介|自我评价|核心优势|求职意向|工作经历|实习经历|项目经历|教育经历|学历信息|专业技能|技能特长|证书|获奖经历|校园经历|语言能力|联系方式)[：:]?$/;
+  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const sections: Section[] = [];
+  let current: Section = { id: makeId(), title: "PDF 导入内容", content: "" };
+  for (const line of lines) {
+    const heading = line.match(headingPattern)?.[1];
+    if (heading) {
+      if (current.content.trim()) sections.push(current);
+      current = { id: makeId(), title: heading, content: "" };
+    } else {
+      current.content += `${current.content ? "\n" : ""}${line}`;
+    }
+  }
+  if (current.content.trim()) sections.push(current);
+  return sections.length ? sections : [{ id: makeId(), title: "PDF 导入内容", content: text.trim() }];
+}
 
 function splitRichHtml(html: string, ratio = 0.62) {
   const source = document.createElement("div");
@@ -44,6 +75,12 @@ function splitRichHtml(html: string, ratio = 0.62) {
     node = walker.nextNode();
   }
   return null;
+}
+
+function richTextToPlainText(html: string) {
+  const element = document.createElement("div");
+  element.innerHTML = html;
+  return element.innerText;
 }
 
 const initialPages: ResumePage[] = [
@@ -209,6 +246,12 @@ export default function Home() {
   const [photoShape, setPhotoShape] = useState<"square" | "round">("square");
   const [photoSize, setPhotoSize] = useState({ width: 102, height: 128 });
   const [showTips, setShowTips] = useState(true);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
+  const [pageNotice, setPageNotice] = useState("");
+  const [canUndo, setCanUndo] = useState(false);
+  const historyRef = useRef<string[]>([]);
+  const isUndoingRef = useRef(false);
+  const noticeTimerRef = useRef<number | null>(null);
   const [profileStyles, setProfileStyles] = useState({
     role: { size: 10.5, color: "#246b5b", visible: true },
     contact: { size: 10.5, color: "#246b5b", visible: true },
@@ -266,6 +309,54 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [pages, profile, profileStyles, photo, fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape, photoSize]);
 
+  const editorSnapshot = JSON.stringify({
+    pages,
+    activePage,
+    profile,
+    profileStyles,
+    photo,
+    settings: { fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape, photoSize },
+  } satisfies EditorSnapshot);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (isUndoingRef.current) {
+        isUndoingRef.current = false;
+        return;
+      }
+      const history = historyRef.current;
+      if (history[history.length - 1] === editorSnapshot) return;
+      history.push(editorSnapshot);
+      if (history.length > 40) history.shift();
+      setCanUndo(history.length > 1);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [editorSnapshot]);
+
+  const applySnapshot = (snapshot: EditorSnapshot) => {
+    setPages(snapshot.pages);
+    setActivePage(Math.min(snapshot.activePage, snapshot.pages.length - 1));
+    setProfile(snapshot.profile);
+    setProfileStyles(snapshot.profileStyles);
+    setPhoto(snapshot.photo);
+    setFontSize(snapshot.settings.fontSize);
+    setLineHeight(snapshot.settings.lineHeight);
+    setSectionGap(snapshot.settings.sectionGap);
+    setFontFamily(snapshot.settings.fontFamily);
+    setAccent(snapshot.settings.accent);
+    setPhotoShape(snapshot.settings.photoShape);
+    setPhotoSize(snapshot.settings.photoSize);
+  };
+
+  const undo = () => {
+    if (historyRef.current.length < 2) return;
+    historyRef.current.pop();
+    const previous = historyRef.current[historyRef.current.length - 1];
+    isUndoingRef.current = true;
+    applySnapshot(JSON.parse(previous) as EditorSnapshot);
+    setCanUndo(historyRef.current.length > 1);
+  };
+
   const updateSection = (pageIndex: number, sectionId: string, patch: Partial<Section>) => {
     setPages((current) =>
       current.map((page, index) =>
@@ -316,6 +407,10 @@ export default function Home() {
       const pageElements = Array.from(document.querySelectorAll<HTMLElement>(".resume-page"));
       const overflowIndex = pageElements.findIndex((page) => page.scrollHeight > page.clientHeight + 2);
       if (overflowIndex < 0) return;
+
+      setPageNotice(`第 ${overflowIndex + 1} 页空间不足，超出内容已自动移到下一页`);
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = window.setTimeout(() => setPageNotice(""), 3200);
 
       setPages((current) => {
         const sourcePage = current[overflowIndex];
@@ -375,6 +470,78 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
+  const handlePdfImport = async (file?: File) => {
+    if (!file) return;
+    if (!window.confirm("导入 PDF 会替换当前简历正文，确定继续吗？你可以使用撤回恢复。")) return;
+    setIsImportingPdf(true);
+    try {
+      const data = new Uint8Array(await file.arrayBuffer());
+      const document = await getDocument({ data }).promise;
+      const pageTexts: string[] = [];
+      for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+        const page = await document.getPage(pageNumber);
+        const content = await page.getTextContent();
+        let pageText = "";
+        for (const item of content.items) {
+          if (!("str" in item)) continue;
+          pageText += `${item.str}${item.hasEOL ? "\n" : " "}`;
+        }
+        if (pageText.trim()) pageTexts.push(pageText.trim());
+      }
+      const fullText = pageTexts.join("\n");
+      if (!fullText.trim()) {
+        window.alert("没有识别到可复制文字。该 PDF 可能是扫描图片版，暂时不支持 OCR，请先转换为可搜索 PDF。 ");
+        return;
+      }
+      setPages([{ id: `page-${makeId()}`, sections: parseResumeSections(fullText) }]);
+      setActivePage(0);
+      setPageNotice(`已从 PDF 识别 ${document.numPages} 页文字，并按简历模块导入`);
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = window.setTimeout(() => setPageNotice(""), 4200);
+    } catch {
+      window.alert("PDF 读取失败，请确认文件未加密且可以正常打开。");
+    } finally {
+      setIsImportingPdf(false);
+    }
+  };
+
+  const exportWord = async () => {
+    const { Document, HeadingLevel, ImageRun, Packer, PageBreak, Paragraph, TextRun } = await import("docx");
+    const children: InstanceType<typeof Paragraph>[] = [
+      new Paragraph({ text: richTextToPlainText(profile.name), heading: HeadingLevel.TITLE }),
+      new Paragraph({ children: [new TextRun({ text: richTextToPlainText(profile.role), bold: true, color: accent.replace("#", "") })] }),
+      new Paragraph({ text: richTextToPlainText(profile.contact) }),
+      new Paragraph({ text: `关键词：${richTextToPlainText(profile.keywords)}` }),
+    ];
+
+    if (photo) {
+      const photoBytes = new Uint8Array(await (await fetch(photo)).arrayBuffer());
+      children.splice(1, 0, new Paragraph({
+        children: [new ImageRun({
+          data: photoBytes,
+          type: photo.startsWith("data:image/png") ? "png" : "jpg",
+          transformation: { width: Math.round(photoSize.width), height: Math.round(photoSize.height) },
+        })],
+      }));
+    }
+
+    pages.forEach((page, pageIndex) => {
+      if (pageIndex > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
+      page.sections.forEach((section) => {
+        children.push(new Paragraph({ text: richTextToPlainText(section.title), heading: HeadingLevel.HEADING_2 }));
+        richTextToPlainText(section.content).split("\n").forEach((line) => children.push(new Paragraph({ text: line })));
+      });
+    });
+
+    const wordDocument = new Document({ sections: [{ children }] });
+    const blob = await Packer.toBlob(wordDocument);
+    const link = window.document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${richTextToPlainText(profile.name) || "个人简历"}.docx`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const resetDraft = () => {
     if (!window.confirm("确定恢复示例内容吗？当前编辑将被清空。")) return;
     setPages(initialPages);
@@ -425,11 +592,19 @@ export default function Home() {
           <div><strong>纸上简历</strong><small>自由排版 · 本地保存</small></div>
         </div>
         <div className="top-actions">
+          <label className="text-button import-pdf-button">
+            <input type="file" accept="application/pdf" onChange={(event) => { void handlePdfImport(event.target.files?.[0]); event.target.value = ""; }} />
+            {isImportingPdf ? "识别中…" : "导入 PDF"}
+          </label>
+          <button className="text-button" onClick={undo} disabled={!canUndo}>撤回</button>
           <button className="text-button" onClick={resetDraft}>恢复示例</button>
           <span className="saved-status"><i /> 已自动保存</span>
+          <button className="word-button" onClick={() => { void exportWord(); }}>导出 Word</button>
           <button className="export-button" onClick={exportPdf}>导出 PDF</button>
         </div>
       </header>
+
+      {pageNotice && <div className="page-notice" role="status">{pageNotice}</div>}
 
       <div className="workspace">
         <aside className="control-panel" aria-label="简历设置">

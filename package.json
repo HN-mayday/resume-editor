@@ -15,8 +15,10 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "docx": "^9.7.1",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
+    "pdfjs-dist": "^6.1.200",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

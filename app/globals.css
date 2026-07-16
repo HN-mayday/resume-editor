@@ -16,9 +16,14 @@ button { cursor: pointer; }
 .brand small { color: #8a9390; font-size: 10px; letter-spacing: .08em; }
 .top-actions { display: flex; align-items: center; gap: 14px; }
 .text-button { border: 0; background: transparent; color: #68716e; padding: 8px; }
+.text-button:disabled { opacity: .38; cursor: not-allowed; }
+.import-pdf-button { cursor: pointer; }
+.import-pdf-button input { display: none; }
 .saved-status { color: #78817e; font-size: 12px; display: flex; align-items: center; gap: 7px; }
 .saved-status i { width: 7px; height: 7px; border-radius: 50%; background: #45a678; box-shadow: 0 0 0 4px #e5f4ec; }
 .export-button { border: 0; background: #172c27; color: #fff; padding: 11px 20px; border-radius: 9px; font-weight: 700; box-shadow: 0 6px 18px rgba(23,44,39,.16); }
+.word-button { border: 1px solid #b8cbc5; background: #eff7f4; color: #245e50; padding: 10px 14px; border-radius: 9px; font-weight: 700; }
+.page-notice { position: fixed; z-index: 40; top: 78px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 11px 16px; border: 1px solid #b9d4cb; border-radius: 10px; background: #eff9f5; color: #185747; box-shadow: 0 10px 30px rgba(30,70,58,.16); font-size: 13px; font-weight: 700; }
 
 .workspace { display: grid; grid-template-columns: 292px minmax(0, 1fr); min-height: calc(100vh - 68px); }
 .control-panel { background: var(--panel); border-right: 1px solid #dfe4e1; padding: 20px 18px 60px; overflow-y: auto; height: calc(100vh - 68px); position: sticky; top: 68px; }

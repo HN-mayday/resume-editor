@@ -50,6 +50,7 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .photo-upload input, .resume-photo input { display: none; }
 .photo-upload span { font-size: 12px; font-weight: 700; }
 .photo-upload small { color: #929b98; font-size: 10px; margin-top: 3px; }
+.control-help { display: block; margin-top: 8px; color: #8a9490; font-size: 10px; line-height: 1.5; }
 .section-list { display: grid; gap: 6px; margin-bottom: 9px; }
 .section-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 8px 7px 10px; border-radius: 7px; background: #fff; border: 1px solid #e1e5e3; font-size: 11px; }
 .section-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 145px; }
@@ -70,6 +71,8 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .canvas-area { min-width: 0; padding: 24px 24px 80px; overflow: auto; background-color: var(--studio); background-image: radial-gradient(#cfd6d2 0.7px, transparent 0.7px); background-size: 18px 18px; }
 .tip-banner { max-width: 794px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px 9px 15px; border: 1px solid #d7dfdc; border-radius: 9px; background: rgba(255,255,255,.9); color: #65706c; font-size: 11px; }
 .tip-banner button { border: 0; background: transparent; color: #246b5b; font-weight: 700; }
+.tip-banner > div { display: flex; align-items: center; gap: 8px; }
+.tip-banner .bold-button { width: 28px; height: 28px; border: 1px solid #c9d6d1; border-radius: 6px; background: #fff; color: #26332f; font-family: Georgia, serif; font-size: 15px; font-weight: 800; }
 .pages-stack { display: grid; gap: 28px; justify-items: center; }
 .resume-page { width: 210mm; min-height: 297mm; height: 297mm; position: relative; overflow: hidden; background: var(--paper); padding: 18mm 18mm 16mm; box-shadow: 0 16px 50px rgba(32,46,40,.13), 0 1px 3px rgba(32,46,40,.08); font-size: var(--resume-font-size); line-height: var(--resume-line-height); color: #202825; transition: box-shadow .2s, outline .2s; }
 .resume-page.active-page { outline: 2px solid color-mix(in srgb, var(--accent) 70%, white); outline-offset: 4px; }
@@ -79,8 +82,9 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .page-number { position: absolute; right: 8mm; top: 7mm; font-size: 9px; letter-spacing: .06em; color: #a6aeab; }
 .resume-header { min-height: 36mm; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 6mm; border-bottom: 2px solid var(--accent); }
 .identity { flex: 1; min-width: 0; }
-.editable { outline: none; border-radius: 3px; white-space: pre-wrap; }
-.editable *, .resume-role *, .resume-contact *, .resume-keywords * { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; font-weight: inherit !important; letter-spacing: inherit !important; color: inherit !important; }
+.editable { outline: none; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.editable *, .resume-role *, .resume-contact *, .resume-keywords * { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; letter-spacing: inherit !important; color: inherit !important; }
+.editable b, .editable strong { font-weight: 800 !important; }
 .editable:hover { background: color-mix(in srgb, var(--accent) 6%, white); }
 .editable:focus { background: color-mix(in srgb, var(--accent) 9%, white); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
 .resume-name { font-family: inherit; font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: .12em; color: #151d1a; }
@@ -90,11 +94,13 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
 .resume-keywords { display: flex; align-items: flex-start; gap: 4px; margin-top: 7px; }
 .resume-keywords > span { flex: 0 0 auto; }
 .resume-keywords-value { flex: 1; min-width: 0; }
-.resume-photo { flex: 0 0 27mm; width: 27mm; height: 34mm; display: grid; place-items: center; align-content: center; gap: 4px; background: #f1f4f2; border: 1px dashed #b9c3bf; overflow: hidden; cursor: pointer; color: #87918d; }
-.resume-photo.round { height: 27mm; border-radius: 50%; }
+.resume-photo { position: relative; flex: 0 0 auto; min-width: 72px; min-height: 72px; max-width: 220px; max-height: 260px; background: #f1f4f2; border: 1px dashed #b9c3bf; overflow: hidden; color: #87918d; }
+.resume-photo.round { border-radius: 50%; }
+.photo-picker { width: 100%; height: 100%; display: grid; place-items: center; align-content: center; gap: 4px; cursor: pointer; overflow: hidden; }
 .resume-photo img { width: 100%; height: 100%; object-fit: cover; }
 .resume-photo span { font-size: 20px; line-height: 1; }
 .resume-photo small { font-size: 9px; }
+.photo-resize-hint { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; padding: 0; border: 0; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 45%, var(--accent) 46%, var(--accent) 55%, transparent 56%, transparent 68%, var(--accent) 69%, var(--accent) 78%, transparent 79%); opacity: .75; }
 .continuation { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 5mm; border-bottom: 2px solid var(--accent); }
 .continuation span { font-size: 17px; font-weight: 800; letter-spacing: .1em; }
 .continuation small { color: #78827e; }
@@ -132,4 +138,5 @@ input[type="range"] { width: 100%; accent-color: #246b5b; }
   .resume-page { width: 210mm; height: 297mm; min-height: 297mm; margin: 0; box-shadow: none; outline: none !important; page-break-after: always; break-after: page; }
   .resume-page:last-of-type { page-break-after: auto; break-after: auto; }
   .editable:hover, .editable:focus { background: transparent; box-shadow: none; }
+  .photo-resize-hint { display: none; }
 }

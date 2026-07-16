@@ -15,6 +15,37 @@ type ResumePage = { id: string; sections: Section[] };
 
 const makeId = () => Math.random().toString(36).slice(2, 9);
 
+function splitRichHtml(html: string, ratio = 0.62) {
+  const source = document.createElement("div");
+  source.innerHTML = html;
+  const textLength = source.textContent?.length ?? 0;
+  if (textLength < 2) return null;
+  const splitAt = Math.max(1, Math.min(textLength - 1, Math.round(textLength * ratio)));
+  const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT);
+  let traversed = 0;
+  let node = walker.nextNode();
+  while (node) {
+    const length = node.textContent?.length ?? 0;
+    if (traversed + length >= splitAt) {
+      const offset = splitAt - traversed;
+      const firstRange = document.createRange();
+      firstRange.selectNodeContents(source);
+      firstRange.setEnd(node, offset);
+      const secondRange = document.createRange();
+      secondRange.selectNodeContents(source);
+      secondRange.setStart(node, offset);
+      const first = document.createElement("div");
+      const second = document.createElement("div");
+      first.append(firstRange.cloneContents());
+      second.append(secondRange.cloneContents());
+      return [first.innerHTML, second.innerHTML] as const;
+    }
+    traversed += length;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
 const initialPages: ResumePage[] = [
   {
     id: "page-1",
@@ -63,7 +94,7 @@ function Editable({
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (ref.current && ref.current.innerText !== value) ref.current.innerText = value;
+    if (ref.current && ref.current.innerHTML !== value) ref.current.innerHTML = value;
   }, [value]);
 
   return (
@@ -75,7 +106,7 @@ function Editable({
       suppressContentEditableWarning
       role="textbox"
       aria-multiline={multiline}
-      onInput={(event) => onChange(event.currentTarget.innerText)}
+      onInput={(event) => onChange(event.currentTarget.innerHTML)}
       onPaste={(event) => {
         event.preventDefault();
         const plainText = event.clipboardData.getData("text/plain");
@@ -85,6 +116,59 @@ function Editable({
         if (!multiline && event.key === "Enter") event.preventDefault();
       }}
     />
+  );
+}
+
+function PhotoEditor({
+  photo,
+  shape,
+  width,
+  height,
+  onPhoto,
+  onResize,
+}: {
+  photo: string;
+  shape: "square" | "round";
+  width: number;
+  height: number;
+  onPhoto: (file?: File) => void;
+  onResize: (width: number, height: number) => void;
+}) {
+  const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startWidth = width;
+    const startHeight = height;
+    const move = (moveEvent: PointerEvent) => {
+      onResize(
+        Math.min(220, Math.max(72, startWidth + moveEvent.clientX - startX)),
+        Math.min(260, Math.max(72, startHeight + moveEvent.clientY - startY)),
+      );
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+  };
+
+  return (
+    <div
+      className={`resume-photo ${shape}`}
+      style={{ width, height, flexBasis: width }}
+      title="拖动右下角可缩放照片"
+    >
+      <label className="photo-picker">
+        {/* The image is a local data URL and must remain compatible with static Vite builds. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {photo ? <img src={photo} alt="个人照片" /> : <><span>＋</span><small>添加照片</small></>}
+        <input type="file" accept="image/*" onChange={(event) => onPhoto(event.target.files?.[0])} />
+      </label>
+      <button type="button" className="photo-resize-hint" aria-label="拖动缩放照片" onPointerDown={startResize} />
+    </div>
   );
 }
 
@@ -98,6 +182,7 @@ export default function Home() {
   const [accent, setAccent] = useState("#246b5b");
   const [photo, setPhoto] = useState<string>("");
   const [photoShape, setPhotoShape] = useState<"square" | "round">("square");
+  const [photoSize, setPhotoSize] = useState({ width: 102, height: 128 });
   const [showTips, setShowTips] = useState(true);
   const [profileStyles, setProfileStyles] = useState({
     role: { size: 10.5, color: "#246b5b", visible: true },
@@ -116,6 +201,8 @@ export default function Home() {
     if (!saved) return;
     try {
       const data = JSON.parse(saved);
+      // Restoring a client-only draft necessarily hydrates component state after mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (data.pages?.length) setPages(data.pages);
       if (data.profile) setProfile(data.profile);
       if (data.profileStyles) setProfileStyles(data.profileStyles);
@@ -126,6 +213,7 @@ export default function Home() {
         setFontFamily(data.settings.fontFamily ?? "sans");
         setAccent(data.settings.accent ?? "#246b5b");
         setPhotoShape(data.settings.photoShape ?? "square");
+        setPhotoSize(data.settings.photoSize ?? { width: 102, height: 128 });
       }
       if (data.photo) setPhoto(data.photo);
     } catch {
@@ -143,7 +231,7 @@ export default function Home() {
             profile,
             profileStyles,
             photo,
-            settings: { fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape },
+            settings: { fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape, photoSize },
           }),
         );
       } catch {
@@ -151,7 +239,7 @@ export default function Home() {
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [pages, profile, profileStyles, photo, fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape]);
+  }, [pages, profile, profileStyles, photo, fontSize, lineHeight, sectionGap, fontFamily, accent, photoShape, photoSize]);
 
   const updateSection = (pageIndex: number, sectionId: string, patch: Partial<Section>) => {
     setPages((current) =>
@@ -187,6 +275,48 @@ export default function Home() {
     );
   };
 
+  const movePage = (direction: -1 | 1) => {
+    const target = activePage + direction;
+    if (target < 0 || target >= pages.length) return;
+    setPages((current) => {
+      const next = [...current];
+      [next[activePage], next[target]] = [next[target], next[activePage]];
+      return next;
+    });
+    setActivePage(target);
+  };
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const pageElements = Array.from(document.querySelectorAll<HTMLElement>(".resume-page"));
+      const overflowIndex = pageElements.findIndex((page) => page.scrollHeight > page.clientHeight + 2);
+      if (overflowIndex < 0) return;
+
+      setPages((current) => {
+        const sourcePage = current[overflowIndex];
+        if (!sourcePage?.sections.length) return current;
+        const next = current.map((page) => ({ ...page, sections: [...page.sections] }));
+        const source = next[overflowIndex];
+        const last = source.sections[source.sections.length - 1];
+        let carried: Section;
+
+        if (source.sections.length > 1) {
+          carried = source.sections.pop()!;
+        } else {
+          const split = splitRichHtml(last.content);
+          if (!split) return current;
+          source.sections[0] = { ...last, content: split[0] };
+          carried = { ...last, id: makeId(), title: `${last.title.replace(/（续）$/, "")}（续）`, content: split[1] };
+        }
+
+        if (!next[overflowIndex + 1]) next.push({ id: `page-${makeId()}`, sections: [] });
+        next[overflowIndex + 1].sections.unshift(carried);
+        return next;
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pages, fontSize, lineHeight, sectionGap, fontFamily, photoSize, profile, profileStyles]);
+
   const removeSection = (sectionId: string) => {
     setPages((current) => current.map((page, index) => index === activePage ? { ...page, sections: page.sections.filter((section) => section.id !== sectionId) } : page));
   };
@@ -205,8 +335,12 @@ export default function Home() {
 
   const deletePage = () => {
     if (pages.length === 1) return;
-    setPages((current) => current.filter((_, index) => index !== activePage));
-    setActivePage((current) => Math.max(0, current - 1));
+    const deletedIndex = activePage;
+    setPages((current) => {
+      const next = current.filter((_, index) => index !== deletedIndex);
+      setActivePage(Math.min(deletedIndex, next.length - 1));
+      return next;
+    });
   };
 
   const handlePhoto = (file?: File) => {
@@ -232,6 +366,8 @@ export default function Home() {
       keywords: { size: 10.5, color: "#246b5b", visible: true },
     });
     setPhoto("");
+    setPhotoShape("square");
+    setPhotoSize({ width: 102, height: 128 });
     window.localStorage.removeItem("resume-studio-draft");
   };
 
@@ -265,6 +401,10 @@ export default function Home() {
               <button onClick={duplicatePage}>复制本页</button>
               <button onClick={deletePage} disabled={pages.length === 1}>删除本页</button>
             </div>
+            <div className="split-buttons">
+              <button onClick={() => movePage(-1)} disabled={activePage === 0}>↑ 本页上移</button>
+              <button onClick={() => movePage(1)} disabled={activePage === pages.length - 1}>↓ 本页下移</button>
+            </div>
           </section>
 
           <section className="panel-section">
@@ -293,6 +433,9 @@ export default function Home() {
               <button className={photoShape === "square" ? "selected-control" : ""} onClick={() => setPhotoShape("square")}>方形</button>
               <button className={photoShape === "round" ? "selected-control" : ""} onClick={() => setPhotoShape("round")}>圆形</button>
             </div>
+            <label className="range-label"><span>照片宽度 <b>{photoSize.width}px</b></span><input type="range" min="72" max="220" step="2" value={photoSize.width} onChange={(e) => setPhotoSize((size) => ({ ...size, width: Number(e.target.value) }))} /></label>
+            <label className="range-label"><span>照片高度 <b>{photoSize.height}px</b></span><input type="range" min="72" max="260" step="2" value={photoSize.height} onChange={(e) => setPhotoSize((size) => ({ ...size, height: Number(e.target.value) }))} /></label>
+            <small className="control-help">也可以直接拖动照片右下角自由缩放</small>
           </section>
 
           <section className="panel-section">
@@ -343,10 +486,10 @@ export default function Home() {
         </aside>
 
         <section className="canvas-area">
-          {showTips && <div className="tip-banner"><span>直接点击纸张上的文字即可编辑；每张纸都是标准 A4。</span><button onClick={() => setShowTips(false)}>知道了</button></div>}
+          {showTips && <div className="tip-banner"><span>直接编辑文字；选中文字后点击 <b>B</b> 或按 Ctrl/⌘ + B 加粗。</span><div><button className="bold-button" aria-label="加粗选中文字" title="加粗选中文字" onMouseDown={(event) => { event.preventDefault(); document.execCommand("bold"); }}>B</button><button onClick={() => setShowTips(false)}>知道了</button></div></div>}
           <div className="pages-stack" style={{ "--resume-font-size": `${fontSize}px`, "--resume-line-height": lineHeight, "--section-gap": `${sectionGap}px`, "--accent": accent } as React.CSSProperties}>
             {pages.map((page, pageIndex) => (
-              <article key={page.id} className={`resume-page font-${fontFamily} ${pageIndex === activePage ? "active-page" : ""}`} onClick={() => setActivePage(pageIndex)}>
+              <article key={page.id} data-page-id={page.id} className={`resume-page font-${fontFamily} ${pageIndex === activePage ? "active-page" : ""}`} onClick={() => setActivePage(pageIndex)}>
                 <div className="page-number">{pageIndex + 1} / {pages.length}</div>
                 {pageIndex === 0 && (
                   <header className="resume-header">
@@ -363,13 +506,17 @@ export default function Home() {
                         />
                       </div>}
                     </div>
-                    <label className={`resume-photo ${photoShape}`}>
-                      {photo ? <img src={photo} alt="个人照片" /> : <><span>＋</span><small>添加照片</small></>}
-                      <input type="file" accept="image/*" onChange={(e) => handlePhoto(e.target.files?.[0])} />
-                    </label>
+                    <PhotoEditor
+                      photo={photo}
+                      shape={photoShape}
+                      width={photoSize.width}
+                      height={photoSize.height}
+                      onPhoto={handlePhoto}
+                      onResize={(width, height) => setPhotoSize({ width, height })}
+                    />
                   </header>
                 )}
-                {pageIndex > 0 && <div className="continuation"><span>{profile.name}</span><small>{profile.role} · 续页 {pageIndex + 1}</small></div>}
+                {pageIndex > 0 && <div className="continuation"><span dangerouslySetInnerHTML={{ __html: profile.name }} /><small><span dangerouslySetInnerHTML={{ __html: profile.role }} /> · 续页 {pageIndex + 1}</small></div>}
                 <div className="resume-sections">
                   {page.sections.map((section) => (
                     <section className="resume-section" key={section.id}>
@@ -378,7 +525,7 @@ export default function Home() {
                     </section>
                   ))}
                 </div>
-                <footer className="resume-footer">{profile.name} · 个人简历</footer>
+                <footer className="resume-footer"><span dangerouslySetInnerHTML={{ __html: profile.name }} /> · 个人简历</footer>
               </article>
             ))}
             <button className="add-page-card" onClick={addPage}><span>＋</span><strong>添加下一页</strong><small>新建一张标准 A4 页面</small></button>

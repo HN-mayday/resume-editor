@@ -134,6 +134,33 @@ function PhotoEditor({
   onPhoto: (file?: File) => void;
   onResize: (width: number, height: number) => void;
 }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !photo) return;
+    canvas.dataset.ready = "false";
+    const image = new Image();
+    image.onload = () => {
+      const scale = 3;
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      const coverScale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+      const sourceWidth = canvas.width / coverScale;
+      const sourceHeight = canvas.height / coverScale;
+      const sourceX = (image.naturalWidth - sourceWidth) / 2;
+      const sourceY = (image.naturalHeight - sourceHeight) / 2;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+      canvas.dataset.ready = "true";
+      window.dispatchEvent(new Event("resume-photo-ready"));
+    };
+    image.src = photo;
+    return () => { image.onload = null; };
+  }, [height, photo, width]);
+
   const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -162,9 +189,7 @@ function PhotoEditor({
       title="拖动右下角可缩放照片"
     >
       <label className="photo-picker">
-        {/* The image is a local data URL and must remain compatible with static Vite builds. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {photo ? <img src={photo} alt="个人照片" /> : <><span>＋</span><small>添加照片</small></>}
+        {photo ? <canvas ref={canvasRef} aria-label="个人照片" /> : <><span>＋</span><small>添加照片</small></>}
         <input type="file" accept="image/*" onChange={(event) => onPhoto(event.target.files?.[0])} />
       </label>
       <button type="button" className="photo-resize-hint" aria-label="拖动缩放照片" onPointerDown={startResize} />
@@ -371,6 +396,27 @@ export default function Home() {
     window.localStorage.removeItem("resume-studio-draft");
   };
 
+  const exportPdf = async () => {
+    const photos = () => Array.from(document.querySelectorAll<HTMLCanvasElement>(".resume-photo canvas"));
+    if (photos().some((canvas) => canvas.dataset.ready !== "true")) {
+      await new Promise<void>((resolve) => {
+        const finish = () => {
+          if (photos().every((canvas) => canvas.dataset.ready === "true")) {
+            window.removeEventListener("resume-photo-ready", finish);
+            resolve();
+          }
+        };
+        window.addEventListener("resume-photo-ready", finish);
+        window.setTimeout(() => {
+          window.removeEventListener("resume-photo-ready", finish);
+          resolve();
+        }, 5000);
+      });
+    }
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
+    window.print();
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -381,7 +427,7 @@ export default function Home() {
         <div className="top-actions">
           <button className="text-button" onClick={resetDraft}>恢复示例</button>
           <span className="saved-status"><i /> 已自动保存</span>
-          <button className="export-button" onClick={() => window.print()}>导出 PDF</button>
+          <button className="export-button" onClick={exportPdf}>导出 PDF</button>
         </div>
       </header>
 
